@@ -261,13 +261,13 @@ export default function InventoryTab({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         
         {/* Physical Stock Table (Modulo B) */}
-        <div className="bg-white border border-[#E4E4E7] p-5 rounded-sm xl:col-span-2">
+        <div className="bg-white border border-[#E4E4E7] p-5 rounded-lg xl:col-span-2 shadow-xs">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#18181B] mb-4 flex items-center space-x-1.5">
             <ArrowRightLeft className="h-4 w-4 text-[#18181B]" />
             <span>Existencias Físicas en {activeWarehouse.name}</span>
           </h3>
 
-          <div className="overflow-x-auto border border-[#E4E4E7] rounded-sm">
+          <div className="overflow-x-auto border border-[#E4E4E7] rounded-lg">
             <table className="w-full text-left text-xs text-[#18181B]">
               <thead className="bg-[#FAFAFA] text-[#71717A] text-[10px] uppercase font-bold tracking-wider border-b border-[#E4E4E7]">
                 <tr>
@@ -291,13 +291,13 @@ export default function InventoryTab({
                     const isLow = item.stockActual <= item.stockMinimo;
                     return (
                       <tr key={item.id} className="hover:bg-[#FAFAFA] transition-colors">
-                        <td className="p-3 font-mono text-xs font-bold text-[#18181B]">{item.sku}</td>
+                        <td className="p-3 font-mono text-xs font-bold text-[#18181B] tabular-numbers">{item.sku}</td>
                         <td className="p-3">
                           <div className="font-bold text-[#18181B]">{item.name}</div>
                           <div className="text-[10px] text-[#71717A] font-mono mt-0.5">{item.unit}</div>
                         </td>
                         <td className="p-3">
-                          <span className={`inline-block px-1.5 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider ${
+                          <span className={`inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
                             item.category === 'Perecederos' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
                             item.category === 'Refrigerados' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
                             'bg-zinc-100 text-zinc-700 border border-zinc-200'
@@ -305,13 +305,13 @@ export default function InventoryTab({
                             {item.category}
                           </span>
                         </td>
-                        <td className="p-3 text-right font-mono font-medium">S/. {item.unitCost}</td>
+                        <td className="p-3 text-right font-mono font-medium tabular-numbers">S/. {item.unitCost.toFixed(2)}</td>
                         <td className="p-3 text-right">
-                          <div className={`font-bold font-mono ${isLow ? 'text-red-600' : 'text-[#18181B]'}`}>
+                          <div className={`font-bold font-mono tabular-numbers ${isLow ? 'text-red-600 animate-pulse' : 'text-[#18181B]'}`}>
                             {item.stockActual}
                           </div>
                           {isLow && (
-                            <span className="inline-block text-[8px] bg-red-50 text-red-600 border border-red-200 px-1 py-0.5 rounded-sm font-bold uppercase mt-1">
+                            <span className="inline-block text-[8px] bg-red-50 text-red-600 border border-red-200 px-1 py-0.5 rounded-md font-bold uppercase mt-1">
                               Stock Crítico
                             </span>
                           )}
@@ -330,7 +330,7 @@ export default function InventoryTab({
         </div>
 
         {/* Transaction History (Kardex View) */}
-        <div className="bg-white border border-[#E4E4E7] p-5 rounded-sm">
+        <div className="bg-white border border-[#E4E4E7] p-5 rounded-lg shadow-xs">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#18181B] mb-4 flex items-center space-x-1.5">
             <History className="h-4 w-4 text-[#18181B]" />
             <span>Kardex Físico e Historial</span>
@@ -343,17 +343,17 @@ export default function InventoryTab({
               </div>
             ) : (
               filteredTransactions.map(t => (
-                <div key={t.id} className="p-3 bg-white border border-[#E4E4E7] rounded-sm text-xs space-y-2">
+                <div key={t.id} className="p-3 bg-white border border-[#E4E4E7] rounded-lg text-xs space-y-2 shadow-2xs">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className={`inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider ${
+                      <span className={`inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
                         t.type === 'IN' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
                       }`}>
                         {t.type === 'IN' ? <Plus className="h-2.5 w-2.5" /> : <Minus className="h-2.5 w-2.5" />}
                         <span>{t.type === 'IN' ? 'Entrada' : 'Salida'}</span>
                       </span>
                       <h4 className="font-bold text-[#18181B] mt-1.5">{t.itemName}</h4>
-                      <p className="text-[10px] text-[#71717A] font-mono">SKU: {t.sku} | Cantidad: {t.quantity}</p>
+                      <p className="text-[10px] text-[#71717A] font-mono">SKU: <span className="tabular-numbers">{t.sku}</span> | Cantidad: <span className="tabular-numbers font-bold text-[#18181B]">{t.quantity}</span></p>
                     </div>
                     <span className="text-[9px] text-[#71717A] font-mono">{new Date(t.timestamp).toLocaleDateString()}</span>
                   </div>
@@ -364,13 +364,13 @@ export default function InventoryTab({
                     <div className="flex items-center space-x-1">
                       <UserIcon className="h-3 w-3 text-[#A1A1AA]" />
                       <span className="truncate max-w-[100px] font-medium">{t.userName}</span>
-                      <span className="text-[8px] bg-[#F4F4F5] text-[#18181B] px-1 py-0.2 rounded-sm border border-[#E4E4E7] font-bold uppercase tracking-wider">{t.userRole}</span>
+                      <span className="text-[8px] bg-[#F4F4F5] text-[#18181B] px-1.5 py-0.2 rounded-md border border-[#E4E4E7] font-bold uppercase tracking-wider">{t.userRole}</span>
                     </div>
                     <div>
                       <span>Diff: </span>
-                      <span className="text-[#71717A]">{t.previousQty}</span>
+                      <span className="text-[#71717A] tabular-numbers">{t.previousQty}</span>
                       <span className="mx-1 text-[#A1A1AA]">→</span>
-                      <span className="text-[#18181B] font-bold">{t.newQty}</span>
+                      <span className="text-[#18181B] font-bold tabular-numbers">{t.newQty}</span>
                     </div>
                   </div>
                 </div>

@@ -4,7 +4,7 @@ import { GeminiAIService } from '../services/GeminiAIService';
 const router = Router();
 
 // Endpoint: Forecast AI / Inventory AI
-router.post(['/forecast', '/ai/forecast'], async (req, res) => {
+router.post(['/gemini/forecast', '/forecast', '/ai/forecast'], async (req, res) => {
   const { items, transactions } = req.body;
   if (!items || !transactions) {
     return res.status(400).json({ success: false, error: 'Faltan datos de inventario y transacciones (Kardex).' });
@@ -20,7 +20,7 @@ router.post(['/forecast', '/ai/forecast'], async (req, res) => {
 });
 
 // Endpoint: Procurement AI / Legal AI
-router.post('/procurement-summary', async (req, res) => {
+router.post(['/gemini/procurement-summary', '/procurement-summary'], async (req, res) => {
   const { tender, bids } = req.body;
   if (!tender || !bids) {
     return res.status(400).json({ success: false, error: 'Faltan datos de licitaciones u ofertas.' });
@@ -36,7 +36,7 @@ router.post('/procurement-summary', async (req, res) => {
 });
 
 // Endpoint: Nutrition AI
-router.post(['/nutrition-suggestions', '/ai/nutrition'], async (req, res) => {
+router.post(['/gemini/nutrition-suggestions', '/nutrition-suggestions', '/ai/nutrition'], async (req, res) => {
   const { menu, ingredients, stockItems } = req.body;
   if (!menu || !ingredients) {
     return res.status(400).json({ success: false, error: 'Faltan datos del menú o ingredientes.' });
@@ -52,7 +52,7 @@ router.post(['/nutrition-suggestions', '/ai/nutrition'], async (req, res) => {
 });
 
 // Endpoint: OCR Intelligent Agent
-router.post(['/ocr-invoice', '/ai/ocr'], async (req, res) => {
+router.post(['/gemini/ocr-invoice', '/ocr-invoice', '/ai/ocr'], async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) {
     return res.status(400).json({ success: false, error: 'No se recibió la imagen de la factura en Base64.' });

@@ -228,12 +228,12 @@ export default function ProcurementTab({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       
       {/* Sidebar: Public Tenders List */}
-      <div className="bg-white border border-[#E4E4E7] p-4 rounded-sm space-y-4 h-fit">
+      <div className="bg-white border border-[#E4E4E7] p-4 rounded-lg space-y-4 h-fit shadow-xs">
         <div className="flex justify-between items-center">
           <h3 className="text-[10px] font-bold text-[#71717A] uppercase tracking-wider">Licitaciones Públicas</h3>
           <button
             onClick={() => setShowNewTenderForm(true)}
-            className="text-[10px] bg-[#18181B] hover:bg-black text-white font-bold uppercase tracking-wider py-1 px-2.5 rounded-sm flex items-center space-x-1 transition-colors"
+            className="text-[10px] bg-[#18181B] hover:bg-black text-white font-bold uppercase tracking-wider py-1 px-2.5 rounded-md flex items-center space-x-1 transition-colors"
           >
             <Plus className="h-3 w-3" />
             <span>Crear Licitación</span>
@@ -251,7 +251,7 @@ export default function ProcurementTab({
                   setAiResult(null);
                   setDocsLink('');
                 }}
-                className={`p-3 rounded-sm border cursor-pointer transition-all ${
+                className={`p-3 rounded-lg border cursor-pointer transition-all ${
                   isSelected 
                     ? 'bg-[#FAFAFA] border-[#18181B] text-[#18181B]' 
                     : 'bg-white border-[#E4E4E7] text-[#71717A] hover:border-[#18181B]'
@@ -259,7 +259,7 @@ export default function ProcurementTab({
               >
                 <div className="flex justify-between items-start">
                   <span className="text-[10px] font-mono text-[#18181B] font-bold">{t.id}</span>
-                  <span className={`px-1.5 py-0.5 rounded-sm text-[8px] font-bold uppercase tracking-wider ${
+                  <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider ${
                     t.status === 'Borrador' ? 'bg-zinc-100 text-zinc-700 border border-zinc-200' :
                     t.status === 'Publicada' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
                     t.status === 'Evaluación' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
@@ -269,7 +269,7 @@ export default function ProcurementTab({
                   </span>
                 </div>
                 <h4 className="font-bold text-xs mt-2 text-[#18181B] truncate">{t.title}</h4>
-                <p className="text-[10px] text-[#71717A] mt-1 font-mono">Presupuesto Base: S/. {t.budgetAmount.toLocaleString()}</p>
+                <p className="text-[10px] text-[#71717A] mt-1 font-mono">Presupuesto Base: S/. <span className="tabular-numbers">{t.budgetAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
               </div>
             );
           })}
@@ -277,7 +277,7 @@ export default function ProcurementTab({
       </div>
 
       {/* Main Panel: Selected Tender workflow */}
-      <div className="bg-white border border-[#E4E4E7] p-5 rounded-sm lg:col-span-2 space-y-6">
+      <div className="bg-white border border-[#E4E4E7] p-5 rounded-lg lg:col-span-2 space-y-6 shadow-xs">
         {activeTender ? (
           <>
             {/* Tender Header & Machine state */}
@@ -311,7 +311,7 @@ export default function ProcurementTab({
             </div>
 
             {/* List of items requested in this Tender */}
-            <div className="bg-[#FAFAFA] border border-[#E4E4E7] p-3.5 rounded-sm space-y-2">
+            <div className="bg-[#FAFAFA] border border-[#E4E4E7] p-3.5 rounded-lg space-y-2">
               <h4 className="text-[10px] font-bold text-[#71717A] uppercase tracking-wider flex items-center space-x-1.5">
                 <BookOpen className="h-3.5 w-3.5 text-[#18181B]" />
                 <span>Víveres Requeridos en Pliego</span>
@@ -319,7 +319,7 @@ export default function ProcurementTab({
               {activeTender.items.map((item, idx) => (
                 <div key={idx} className="flex justify-between items-center text-xs font-mono border-t border-[#E4E4E7] pt-2 first:border-0 first:pt-0">
                   <span className="text-[#18181B] font-sans font-medium">{item.name}</span>
-                  <span className="text-[#71717A]">Cantidad: <b className="text-[#18181B]">{item.quantity}</b> | Costo Max: S/. {item.targetUnitCost}</span>
+                  <span className="text-[#71717A]">Cantidad: <b className="text-[#18181B] tabular-numbers">{item.quantity}</b> | Costo Max: S/. <span className="text-[#18181B] font-bold tabular-numbers">{item.targetUnitCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></span>
                 </div>
               ))}
             </div>
@@ -331,7 +331,7 @@ export default function ProcurementTab({
                 {activeTender.status === 'Publicada' && (
                   <button
                     onClick={() => setShowBidForm(true)}
-                    className="text-[10px] bg-white border border-[#E4E4E7] text-[#18181B] hover:bg-[#FAFAFA] px-2.5 py-1 rounded-sm font-bold uppercase tracking-wider flex items-center space-x-1 transition-colors"
+                    className="text-[10px] bg-white border border-[#E4E4E7] text-[#18181B] hover:bg-[#FAFAFA] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center space-x-1 transition-colors"
                   >
                     <Plus className="h-3 w-3" />
                     <span>Registrar Oferta</span>
@@ -340,7 +340,7 @@ export default function ProcurementTab({
               </div>
 
               {tenderBids.length === 0 ? (
-                <div className="p-6 text-center text-[#71717A] text-xs bg-[#FAFAFA] border border-[#E4E4E7] rounded-sm">
+                <div className="p-6 text-center text-[#71717A] text-xs bg-[#FAFAFA] border border-[#E4E4E7] rounded-lg">
                   No se han registrado ofertas económicas para esta licitación aún.
                 </div>
               ) : (
@@ -348,13 +348,13 @@ export default function ProcurementTab({
                   {tenderBids.map(bid => {
                     const isWinner = activeTender.winnerSupplierId === bid.supplierId;
                     return (
-                      <div key={bid.id} className={`p-4 rounded-sm border flex flex-col justify-between ${
+                      <div key={bid.id} className={`p-4 rounded-lg border flex flex-col justify-between shadow-2xs ${
                         isWinner ? 'bg-green-50 border-green-300' : 'bg-white border-[#E4E4E7]'
                       }`}>
                         <div>
                           <div className="flex justify-between items-start">
                             <h4 className="text-xs font-bold text-[#18181B]">{bid.supplierName}</h4>
-                            <span className="text-xs font-mono font-bold text-[#18181B]">S/. {bid.amount.toLocaleString()}</span>
+                            <span className="text-xs font-mono font-bold text-[#18181B] tabular-numbers">S/. {bid.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           <p className="text-[11px] text-[#71717A] italic mt-2">"{bid.proposalSummary}"</p>
                         </div>

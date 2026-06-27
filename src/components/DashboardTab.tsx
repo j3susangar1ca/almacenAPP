@@ -91,13 +91,13 @@ export default function DashboardTab({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         
         {/* KPI 1: Inventory Valuation */}
-        <div className="bg-white border border-[#E4E4E7] p-4 rounded-sm flex flex-col justify-between">
+        <div className="bg-white border border-[#E4E4E7] p-4 rounded-lg flex flex-col justify-between shadow-xs">
           <div className="flex justify-between items-center text-[#71717A]">
             <span className="text-[10px] uppercase font-bold tracking-wider">Valor Inventario</span>
             <Coins className="h-4 w-4 text-[#18181B]" />
           </div>
           <div className="mt-2">
-            <span className="text-xl font-bold text-[#18181B]">S/. {totalValuation.toLocaleString()}</span>
+            <span className="text-xl font-bold text-[#18181B] tabular-numbers">S/. {totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <div className="text-[10px] text-green-600 flex items-center space-x-1 mt-1 font-bold uppercase">
               <TrendingUp className="h-3 w-3" />
               <span>+4.2% este mes</span>
@@ -106,19 +106,19 @@ export default function DashboardTab({
         </div>
 
         {/* KPI 2: Total Items */}
-        <div className="bg-white border border-[#E4E4E7] p-4 rounded-sm flex flex-col justify-between">
+        <div className="bg-white border border-[#E4E4E7] p-4 rounded-lg flex flex-col justify-between shadow-xs">
           <div className="flex justify-between items-center text-[#71717A]">
             <span className="text-[10px] uppercase font-bold tracking-wider">Total Artículos</span>
             <Warehouse className="h-4 w-4 text-[#18181B]" />
           </div>
           <div className="mt-2">
-            <span className="text-xl font-bold text-[#18181B]">{totalItemsCount}</span>
+            <span className="text-xl font-bold text-[#18181B] tabular-numbers">{totalItemsCount}</span>
             <p className="text-[10px] text-[#A1A1AA] mt-1 font-bold uppercase">Maestro catalogado</p>
           </div>
         </div>
 
         {/* KPI 3: Stock Alertas */}
-        <div className={`bg-white border p-4 rounded-sm flex flex-col justify-between transition-colors ${
+        <div className={`bg-white border p-4 rounded-lg flex flex-col justify-between transition-colors shadow-xs ${
           criticalCount > 0 
             ? 'border-red-200 bg-red-50/10' 
             : 'border-[#E4E4E7]'
@@ -128,34 +128,40 @@ export default function DashboardTab({
             <AlertTriangle className={`h-4 w-4 ${criticalCount > 0 ? 'text-red-600 animate-pulse' : 'text-[#71717A]'}`} />
           </div>
           <div className="mt-2">
-            <span className={`text-xl font-bold ${criticalCount > 0 ? 'text-red-600' : 'text-[#18181B]'}`}>{criticalCount}</span>
+            <span className={`text-xl font-bold tabular-numbers ${criticalCount > 0 ? 'text-red-600' : 'text-[#18181B]'}`}>{criticalCount}</span>
             <p className="text-[10px] text-[#A1A1AA] mt-1 font-bold uppercase">Artículos ≤ stock mín.</p>
           </div>
         </div>
 
         {/* KPI 4: Licitaciones Activas */}
-        <div className="bg-white border border-[#E4E4E7] p-4 rounded-sm flex flex-col justify-between">
+        <div className="bg-white border border-[#E4E4E7] p-4 rounded-lg flex flex-col justify-between shadow-xs">
           <div className="flex justify-between items-center text-[#71717A]">
             <span className="text-[10px] uppercase font-bold tracking-wider">Licitaciones Activas</span>
             <FileText className="h-4 w-4 text-[#18181B]" />
           </div>
           <div className="mt-2">
-            <span className="text-xl font-bold text-[#18181B]">{activeTendersCount}</span>
+            <span className="text-xl font-bold text-[#18181B] tabular-numbers">{activeTendersCount}</span>
             <p className="text-[10px] text-[#A1A1AA] mt-1 font-bold uppercase">En pliegos y evaluación</p>
           </div>
         </div>
 
         {/* KPI 5: Presupuesto Ejecutado */}
-        <div className="bg-white border border-[#E4E4E7] p-4 rounded-sm flex flex-col justify-between">
+        <div className="bg-white border border-[#E4E4E7] p-4 rounded-lg flex flex-col justify-between shadow-xs">
           <div className="flex justify-between items-center text-[#71717A]">
             <span className="text-[10px] uppercase font-bold tracking-wider">Ejecución Presupuesto</span>
             <Activity className="h-4 w-4 text-[#18181B]" />
           </div>
           <div className="mt-2">
-            <span className="text-xl font-bold text-[#18181B]">{budgetUtilizationRate.toFixed(1)}%</span>
-            <div className="w-full bg-[#F4F4F5] h-1.5 rounded-none mt-2">
+            <span className="text-xl font-bold text-[#18181B] tabular-numbers">{budgetUtilizationRate.toFixed(1)}%</span>
+            <div className="w-full bg-[#F4F4F5] h-1.5 rounded-full mt-2 overflow-hidden">
               <div 
-                className="bg-[#18181B] h-1.5" 
+                className={`h-full rounded-full transition-all duration-500 ${
+                  budgetUtilizationRate > 90 
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-600' 
+                    : budgetUtilizationRate > 70 
+                    ? 'bg-gradient-to-r from-yellow-500 to-amber-500' 
+                    : 'bg-gradient-to-r from-zinc-400 to-zinc-600'
+                }`}
                 style={{ width: `${Math.min(budgetUtilizationRate, 100)}%` }}
               ></div>
             </div>
@@ -163,13 +169,13 @@ export default function DashboardTab({
         </div>
 
         {/* KPI 6: Menús Programados */}
-        <div className="bg-white border border-[#E4E4E7] p-4 rounded-sm flex flex-col justify-between">
+        <div className="bg-white border border-[#E4E4E7] p-4 rounded-lg flex flex-col justify-between shadow-xs">
           <div className="flex justify-between items-center text-[#71717A]">
             <span className="text-[10px] uppercase font-bold tracking-wider">Menús Activos</span>
             <Calendar className="h-4 w-4 text-[#18181B]" />
           </div>
           <div className="mt-2">
-            <span className="text-xl font-bold text-[#18181B]">{plannedMenusCount}</span>
+            <span className="text-xl font-bold text-[#18181B] tabular-numbers">{plannedMenusCount}</span>
             <p className="text-[10px] text-[#A1A1AA] mt-1 font-bold uppercase">Programados para el mes</p>
           </div>
         </div>
@@ -218,7 +224,7 @@ export default function DashboardTab({
         </div>
 
         {/* Budget execution details breakdown */}
-        <div className="bg-white border border-[#E4E4E7] p-5 rounded-sm">
+        <div className="bg-white border border-[#E4E4E7] p-5 rounded-lg shadow-xs">
           <div className="flex justify-between items-center mb-4 pb-2 border-b border-[#F4F4F5]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#18181B] flex items-center space-x-1.5">
               <Coins className="h-4 w-4 text-[#18181B]" />
@@ -232,34 +238,40 @@ export default function DashboardTab({
               const utilized = b.committedAmount + b.executedAmount;
               const rate = (utilized / b.allocatedAmount) * 100;
               return (
-                <div key={b.id} className="p-3 bg-[#FAFAFA] border border-[#E4E4E7] rounded-sm">
+                <div key={b.id} className="p-4 bg-[#FAFAFA] border border-[#E4E4E7] rounded-lg shadow-2xs">
                   <div className="flex justify-between items-start mb-1">
                     <div>
-                      <span className="text-[10px] font-bold text-[#18181B] font-mono">{b.code}</span>
-                      <h4 className="text-xs text-[#18181B] truncate font-semibold">{b.name}</h4>
+                      <span className="text-[10px] font-bold text-[#71717A] font-mono">{b.code}</span>
+                      <h4 className="text-xs text-[#18181B] truncate font-bold">{b.name}</h4>
                     </div>
-                    <span className="text-[10px] text-[#71717A] font-bold font-mono">{rate.toFixed(1)}%</span>
+                    <span className="text-[10px] text-[#18181B] font-bold font-mono tabular-numbers">{rate.toFixed(1)}%</span>
                   </div>
 
-                  <div className="w-full bg-[#E4E4E7] h-1.5 rounded-none my-2">
+                  <div className="w-full bg-[#E4E4E7] h-2 rounded-full my-2 overflow-hidden">
                     <div 
-                      className={`h-1.5 ${rate > 80 ? 'bg-amber-600' : 'bg-[#18181B]'}`} 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        rate > 90 
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-600' 
+                          : rate > 70 
+                          ? 'bg-gradient-to-r from-yellow-500 to-amber-500' 
+                          : 'bg-gradient-to-r from-zinc-400 to-zinc-600'
+                      }`} 
                       style={{ width: `${Math.min(rate, 100)}%` }}
                     ></div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-1 text-[9px] text-[#71717A] font-mono mt-1 border-t border-[#E4E4E7] pt-1.5">
+                  <div className="grid grid-cols-3 gap-1 text-[9px] text-[#71717A] font-mono mt-2 border-t border-[#E4E4E7] pt-2">
                     <div>
                       <span className="block text-[8px] text-[#A1A1AA] font-sans font-bold uppercase">Asignado</span>
-                      <span className="text-[#18181B] font-medium">S/. {b.allocatedAmount.toLocaleString()}</span>
+                      <span className="text-[#18181B] font-medium tabular-numbers">S/. {b.allocatedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div>
                       <span className="block text-[8px] text-[#A1A1AA] font-sans font-bold uppercase">Comprometido</span>
-                      <span className="text-amber-700 font-medium">S/. {utilized.toLocaleString()}</span>
+                      <span className="text-amber-700 font-medium tabular-numbers">S/. {utilized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="text-right">
                       <span className="block text-[8px] text-[#A1A1AA] font-sans font-bold uppercase">Disponible</span>
-                      <span className="text-[#18181B] font-bold">S/. {b.availableAmount.toLocaleString()}</span>
+                      <span className="text-[#18181B] font-bold tabular-numbers">S/. {b.availableAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>
