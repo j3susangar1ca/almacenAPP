@@ -10,6 +10,7 @@ import {
   Menu as MenuIcon,
   Sparkles
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { UserRole, Warehouse } from '../types';
 
@@ -169,20 +170,30 @@ export default function Navbar({
       {/* Tabs navigation under header */}
       <nav className="bg-[#FAFAFA] border-t border-[#E4E4E7]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1 py-1.5 overflow-x-auto scrollbar-none">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                className={`text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-sm font-bold transition-all duration-200 whitespace-nowrap border ${
-                  activeTab === tab.id
-                    ? 'bg-[#18181B] text-white border-[#18181B]'
-                    : 'text-[#71717A] hover:text-[#18181B] hover:bg-white border-transparent hover:border-[#E4E4E7]'
-                }`}
-              >
-                {tab.name}
-              </button>
-            ))}
+          <div className="flex space-x-2 py-0 overflow-x-auto scrollbar-none">
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => onTabChange(tab.id)}
+                  className={`relative text-[10px] uppercase tracking-widest px-3 py-3.5 font-bold transition-all duration-300 whitespace-nowrap focus:outline-none ${
+                    isActive
+                      ? 'text-[#18181B]'
+                      : 'text-[#71717A] hover:text-[#18181B]'
+                  }`}
+                >
+                  <span>{tab.name}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTabUnderline"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#18181B]"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </nav>

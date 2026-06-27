@@ -34,6 +34,9 @@ import ProcurementTab from './components/ProcurementTab';
 import NutritionTab from './components/NutritionTab';
 import ResourcesTab from './components/ResourcesTab';
 import PurchaseOrdersTab from './components/PurchaseOrdersTab';
+import SkeletonLoader from './components/SkeletonLoader';
+import { Toaster, toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Loader, 
   Lock, 
@@ -192,7 +195,7 @@ export default function App() {
 
   // CRUD & TRANSACTION HANDLERS
   
-  // Inventory movement atomic transaction
+  // Inventory movement atomic transaction with Optimistic UI updates
   const handleExecuteMovement = async (
     itemId: string,
     type: 'IN' | 'OUT',
@@ -202,20 +205,90 @@ export default function App() {
     
     const userEmail = currentUser?.email || 'sandboxed_erp@sigalerp.gob.pe';
     
-    const res = await executeStockMovementTransaction(
+    // Find item to calculate and update state optimistically
+    const itemIndex = items.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) {
+      return { success: false, msg: 'Artículo no encontrado para actualizar.' };
+    }
+    
+    const targetItem = items[itemIndex];
+    const prevQty = targetItem.stockActual;
+    const newQty = type === 'IN' ? prevQty + qty : Math.max(0, prevQty - qty);
+    
+    // Check for negative stock
+    if (type === 'OUT' && prevQty < qty) {
+      toast.warning(`Atención: Retirando más stock del disponible. El stock disponible es ${prevQty} ${targetItem.unit}.`);
+    }
+
+    // Preserve original states for potential rollback
+    const originalItems = [...items];
+    const originalTransactions = [...transactions];
+    
+    // Apply state updates optimistically in React state
+    const updatedItems = [...items];
+    updatedItems[itemIndex] = {
+      ...targetItem,
+      stockActual: newQty
+    };
+    setItems(updatedItems);
+    
+    // Prepend optimistic transaction entry
+    const optTxId = 'opt-' + Date.now();
+    const optimisticTx: StockTransaction = {
+      id: optTxId,
+      timestamp: new Date().toISOString(),
       itemId,
+      itemName: targetItem.name,
+      sku: targetItem.sku,
+      warehouseId: targetItem.warehouseId,
+      warehouseName: targetItem.warehouseId === 'W-01' ? 'Almacén Central (Secos)' : 'Cámara Frigorífica (Congelados)',
       type,
-      qty,
-      details,
-      userEmail,
-      activeRole
+      quantity: qty,
+      previousQty: prevQty,
+      newQty,
+      userId: userEmail,
+      userName: userEmail.split('@')[0],
+      userRole: activeRole,
+      details: `${details} (Sincronizando con la nube...)`
+    };
+    setTransactions([optimisticTx, ...transactions]);
+    
+    // Display elegant sonner toast
+    const toastLabel = `${type === 'IN' ? 'Entrada' : 'Salida'}: ${qty} ${targetItem.unit} de ${targetItem.name}`;
+    toast.promise(
+      executeStockMovementTransaction(
+        itemId,
+        type,
+        qty,
+        details,
+        userEmail,
+        activeRole
+      ),
+      {
+        loading: `Procesando ${toastLabel}...`,
+        success: (res) => {
+          if (res.success) {
+            // Re-fetch in background to ensure accurate synchronization
+            loadDatabase();
+            return `¡Éxito! ${toastLabel} registrado correctamente.`;
+          } else {
+            // Rollback state if the response returned success: false
+            setItems(originalItems);
+            setTransactions(originalTransactions);
+            throw new Error(res.msg || 'Falla de regla de negocio');
+          }
+        },
+        error: (err) => {
+          // Rollback state on error
+          setItems(originalItems);
+          setTransactions(originalTransactions);
+          return `Error al registrar movimiento: ${err.message || err || 'Falla de red'}. Reestableciendo stock anterior.`;
+        }
+      }
     );
 
-    if (res.success) {
-      // Refresh local state to avoid stale counters
-      await loadDatabase();
-    }
-    return res;
+    // Return success immediately so the modal form closes instantly without blocking spinner
+    return { success: true, msg: 'Movimiento registrado optimistamente.' };
   };
 
   // Sync Google Sheets Mirror
@@ -462,6 +535,7 @@ export default function App() {
   // Dashboard layout once loaded
   return (
     <div className="min-h-screen bg-[#F4F4F5] text-[#18181B] flex flex-col font-sans">
+      <Toaster position="top-right" richColors />
       
       {/* Header bar and role switcher */}
       <Navbar 
@@ -510,91 +584,103 @@ export default function App() {
 
         {/* Tab Panel contents render */}
         {loading ? (
-          <div className="flex flex-col justify-center items-center py-20 space-y-3">
-            <Loader className="h-8 w-8 animate-spin text-[#18181B]" />
-            <span className="text-xs font-mono text-[#71717A]">
-              {seeding ? 'Creando base de datos Firestore corporativa...' : 'Sincronizando Estado Firestore...'}
-            </span>
-          </div>
+          seeding ? (
+            <div className="flex flex-col justify-center items-center py-20 space-y-3">
+              <Loader className="h-8 w-8 animate-spin text-[#18181B]" />
+              <span className="text-xs font-mono text-[#71717A]">
+                Creando base de datos Firestore corporativa...
+              </span>
+            </div>
+          ) : (
+            <SkeletonLoader tab={activeTab} />
+          )
         ) : (
-          <div className="transition-all duration-300">
-            {activeTab === 'dashboard' && (
-              <DashboardTab
-                items={items}
-                budgets={budgets}
-                transactions={transactions}
-                tenders={tenders}
-                menuItems={menuItems}
-                onNavigateToTab={setActiveTab}
-              />
-            )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18, ease: "easeInOut" }}
+            >
+              {activeTab === 'dashboard' && (
+                <DashboardTab
+                  items={items}
+                  budgets={budgets}
+                  transactions={transactions}
+                  tenders={tenders}
+                  menuItems={menuItems}
+                  onNavigateToTab={setActiveTab}
+                />
+              )}
 
-            {activeTab === 'inventory' && (
-              <InventoryTab
-                items={items}
-                transactions={transactions}
-                activeWarehouse={activeWarehouse}
-                role={activeRole}
-                userEmail={currentUser?.email || 'simulacion@sigalerp.gob.pe'}
-                onExecuteMovement={handleExecuteMovement}
-                onAddItem={async () => {}}
-                onTriggerSyncSheets={handleTriggerSyncSheets}
-              />
-            )}
+              {activeTab === 'inventory' && (
+                <InventoryTab
+                  items={items}
+                  transactions={transactions}
+                  activeWarehouse={activeWarehouse}
+                  role={activeRole}
+                  userEmail={currentUser?.email || 'simulacion@sigalerp.gob.pe'}
+                  onExecuteMovement={handleExecuteMovement}
+                  onAddItem={async () => {}}
+                  onTriggerSyncSheets={handleTriggerSyncSheets}
+                />
+              )}
 
-            {activeTab === 'procurement' && (
-              <ProcurementTab
-                tenders={tenders}
-                bids={bids}
-                suppliers={[
-                  { id: 'S-01', name: 'Distribuidora Alimenticia S.A.', ruc: '20554488331', contactEmail: 'contacto@distalimenticia.com', category: 'Granos y Secos' },
-                  { id: 'S-02', name: 'Frigorífico San Martín', ruc: '20113344558', contactEmail: 'ventas@frigosanmartin.com', category: 'Cárnicos y Congelados' }
-                ]}
-                budgets={budgets}
-                role={activeRole}
-                onUpdateTender={handleUpdateTender}
-                onAddTender={handleAddTender}
-                onAddBid={handleAddBid}
-                onCommitBudget={handleCommitBudget}
-              />
-            )}
+              {activeTab === 'procurement' && (
+                <ProcurementTab
+                  tenders={tenders}
+                  bids={bids}
+                  suppliers={[
+                    { id: 'S-01', name: 'Distribuidora Alimenticia S.A.', ruc: '20554488331', contactEmail: 'contacto@distalimenticia.com', category: 'Granos y Secos' },
+                    { id: 'S-02', name: 'Frigorífico San Martín', ruc: '20113344558', contactEmail: 'ventas@frigosanmartin.com', category: 'Cárnicos y Congelados' }
+                  ]}
+                  budgets={budgets}
+                  role={activeRole}
+                  onUpdateTender={handleUpdateTender}
+                  onAddTender={handleAddTender}
+                  onAddBid={handleAddBid}
+                  onCommitBudget={handleCommitBudget}
+                />
+              )}
 
-            {activeTab === 'nutrition' && (
-              <NutritionTab
-                menuItems={menuItems}
-                recipes={recipes}
-                stockItems={items}
-                role={activeRole}
-                userEmail={currentUser?.email || 'simulacion@sigalerp.gob.pe'}
-                onAddMenu={handleAddMenu}
-                onApproveMenu={handleApproveMenu}
-              />
-            )}
+              {activeTab === 'nutrition' && (
+                <NutritionTab
+                  menuItems={menuItems}
+                  recipes={recipes}
+                  stockItems={items}
+                  role={activeRole}
+                  userEmail={currentUser?.email || 'simulacion@sigalerp.gob.pe'}
+                  onAddMenu={handleAddMenu}
+                  onApproveMenu={handleApproveMenu}
+                />
+              )}
 
-            {activeTab === 'purchase-orders' && (
-              <PurchaseOrdersTab
-                programItems={programItems}
-                purchaseOrders={purchaseOrders}
-                items={items}
-                transactions={transactions}
-                onTriggerDriveSetup={handleTriggerDriveSetup}
-                onAddPurchaseOrder={handleAddPurchaseOrder}
-              />
-            )}
+              {activeTab === 'purchase-orders' && (
+                <PurchaseOrdersTab
+                  programItems={programItems}
+                  purchaseOrders={purchaseOrders}
+                  items={items}
+                  transactions={transactions}
+                  onTriggerDriveSetup={handleTriggerDriveSetup}
+                  onAddPurchaseOrder={handleAddPurchaseOrder}
+                />
+              )}
 
-            {activeTab === 'resources' && (
-              <ResourcesTab
-                staff={staff}
-                vehicles={vehicles}
-                equipment={equipment}
-                budgets={budgets}
-                role={activeRole}
-                onAddStaff={handleAddStaff}
-                onAddVehicle={handleAddVehicle}
-                onTriggerMaintenance={handleTriggerMaintenance}
-              />
-            )}
-          </div>
+              {activeTab === 'resources' && (
+                <ResourcesTab
+                  staff={staff}
+                  vehicles={vehicles}
+                  equipment={equipment}
+                  budgets={budgets}
+                  role={activeRole}
+                  onAddStaff={handleAddStaff}
+                  onAddVehicle={handleAddVehicle}
+                  onTriggerMaintenance={handleTriggerMaintenance}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         )}
 
       </main>
