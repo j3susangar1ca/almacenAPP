@@ -104,3 +104,24 @@ Firestore es el almacenamiento central transaccional y offline-first. Las integr
 *   **Procurement AI / Legal AI:** Resumen inteligente de propuestas complejas de licitación y análisis de desviación presupuestaria.
 *   **Nutrition AI:** Evaluación macro-nutricional y sugerencia de recetas alternativas basadas en los ingredientes que están próximos a vencer o que tienen exceso de stock.
 *   **OCR Intelligent Agent:** Extracción automática de facturas y remisiones mediante análisis de imagen/documento estructurado con Gemini Vision, pre-llenando las entradas físicas de stock de forma automatizada.
+
+---
+
+## 6. Consolidación de Capas y Refactorización (Fase de Cierre)
+
+Como parte del proceso de maduración de la arquitectura limpia de **SIGAL V2**, se realizaron las siguientes mejoras fundamentales:
+
+### 6.1. Inyección de Agregados del Dominio (DDD Invariants)
+*   **BudgetAggregate (`/src/core/domain/entities/BudgetAggregate.ts`):** Centraliza las reglas de negocio para comprometer, ejecutar y liberar presupuestos, manteniendo la invariante `availableAmount = allocatedAmount - committedAmount - executedAmount`.
+*   **ResourceAggregate (`/src/core/domain/entities/ResourceAggregate.ts`):** Modela la lógica pura para la asignación válida de turnos de personal, la programación automática de mantenimientos vehiculares y preventivos de equipamiento de frío.
+
+### 6.2. Capa de Aplicación Analytics
+*   **MonthlyProgramQueries (`/src/core/application/queries/getMonthlyProgramQueries.ts`):** Proporciona las queries necesarias para alimentar la grilla de programación mensual (Módulo F), calculando métricas avanzadas como la desviación contra el promedio histórico.
+
+### 6.3. Desacoplamiento y Modularización del Servidor Express
+*   Se eliminaron todos los endpoints embebidos masivos de `server.ts` y se estructuró una capa de enrutamiento limpia en `server/routes/`:
+    *   **aiRoutes.ts:** Controladores HTTP de Gemini AI (Forecast, Procurement Evaluation, Nutrition Audit, Invoice OCR) interactuando con la nueva clase unificada de negocio **GeminiAIService**.
+    *   **inventoryRoutes.ts:** Gestión de sincronización de almacenes con Google Sheets y Google Drive.
+    *   **procurementRoutes.ts:** Integraciones complejas con Google Docs, Gmail, Calendar, People/Contacts y Google Chat, coordinados con el motor de FSM.
+*   `server.ts` ahora actúa únicamente como el punto de orquestación central e inicialización de Middlewares y Event Listeners.
+
