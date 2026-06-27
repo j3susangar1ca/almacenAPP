@@ -1,0 +1,6 @@
+{
+  "name": "SIGAL V2 Enterprise ERP",
+  "description": "Sistema Integrado de Gestión de Almacén de Víveres Públicos, Licitaciones y Menús Institucionales con integraciones de Google Workspace e IA de Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

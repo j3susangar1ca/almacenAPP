@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Safety fallback
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    match /warehouses/{id} {
+      allow read, write: if true;
+    }
+
+    match /budgets/{id} {
+      allow read, write: if true;
+    }
+
+    match /suppliers/{id} {
+      allow read, write: if true;
+    }
+
+    match /stock_items/{id} {
+      allow read, write: if true;
+    }
+
+    match /staff_members/{id} {
+      allow read, write: if true;
+    }
+
+    match /vehicles/{id} {
+      allow read, write: if true;
+    }
+
+    match /equipment/{id} {
+      allow read, write: if true;
+    }
+
+    match /recipes/{id} {
+      allow read, write: if true;
+    }
+
+    match /tenders/{id} {
+      allow read, write: if true;
+    }
+
+    match /bids/{id} {
+      allow read, write: if true;
+    }
+
+    match /stock_transactions/{id} {
+      allow read, write: if true;
+    }
+
+    match /menu_items/{id} {
+      allow read, write: if true;
+    }
+
+    match /purchase_orders/{id} {
+      allow read, write: if true;
+    }
+
+    match /audit_logs/{id} {
+      allow read, write: if true;
+    }
+
+    match /monthly_program_items/{id} {
+      allow read, write: if true;
+    }
+  }
+}

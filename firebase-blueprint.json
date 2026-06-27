@@ -1,0 +1,296 @@
+{
+  "entities": {
+    "Warehouse": {
+      "title": "Warehouse",
+      "description": "Warehouse details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "location": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Financial budget category for procurement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "allocatedAmount": { "type": "number" },
+        "committedAmount": { "type": "number" },
+        "executedAmount": { "type": "number" },
+        "availableAmount": { "type": "number" }
+      },
+      "required": ["id", "code", "name", "allocatedAmount"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Registered suppliers for bidding and POs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ruc": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "name", "ruc"]
+    },
+    "StockItem": {
+      "title": "StockItem",
+      "description": "Inventory item stored in a warehouse",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "unit": { "type": "string" },
+        "unitCost": { "type": "number" },
+        "stockActual": { "type": "number" },
+        "stockMinimo": { "type": "number" },
+        "supplierId": { "type": "string" },
+        "batchCode": { "type": "string" },
+        "expirationDate": { "type": "string" },
+        "warehouseId": { "type": "string" }
+      },
+      "required": ["id", "sku", "name", "stockActual", "warehouseId"]
+    },
+    "StaffMember": {
+      "title": "StaffMember",
+      "description": "Warehouse and kitchen personnel roster",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "shift": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "role", "status"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Logistics fleet vehicle information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "plates": { "type": "string" },
+        "capacityKg": { "type": "number" },
+        "status": { "type": "string" },
+        "nextMaintenance": { "type": "string" }
+      },
+      "required": ["id", "plates", "status"]
+    },
+    "Equipment": {
+      "title": "Equipment",
+      "description": "Critical cold room and storage assets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "lastMaintenance": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "status"]
+    },
+    "Recipe": {
+      "title": "Recipe",
+      "description": "Base technical formula (BOM) for menus",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "ingredients": {
+          "type": "array"
+        }
+      },
+      "required": ["id", "name", "ingredients"]
+    },
+    "Tender": {
+      "title": "Tender",
+      "description": "Public bidding procurement process",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "budgetCode": { "type": "string" },
+        "budgetAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "deadline": { "type": "string" },
+        "items": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "status"]
+    },
+    "Bid": {
+      "title": "Bid",
+      "description": "Supplier proposals for public tenders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenderId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "amount": { "type": "number" },
+        "proposalSummary": { "type": "string" },
+        "docUrl": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "tenderId", "supplierId", "amount", "status"]
+    },
+    "StockTransaction": {
+      "title": "StockTransaction",
+      "description": "Kardex record for stock movements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemName": { "type": "string" },
+        "sku": { "type": "string" },
+        "warehouseId": { "type": "string" },
+        "warehouseName": { "type": "string" },
+        "type": { "type": "string" },
+        "quantity": { "type": "number" },
+        "previousQty": { "type": "number" },
+        "newQty": { "type": "number" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "itemId", "type", "quantity"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "Daily planned institutional menus",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string" },
+        "recipeId": { "type": "string" },
+        "recipeName": { "type": "string" },
+        "servings": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "date", "recipeId", "servings", "status"]
+    },
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
+      "description": "Supplier purchase orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "budgetCode": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "supplierId", "totalAmount", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Audit and forensic log of all operations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "action": { "type": "string" },
+        "endpoint": { "type": "string" },
+        "before": { "type": "object" },
+        "after": { "type": "object" }
+      },
+      "required": ["timestamp", "userId", "action"]
+    },
+    "MonthlyProgramItem": {
+      "title": "MonthlyProgramItem",
+      "description": "Programmed monthly needs for forecasting",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "historicalAvg": { "type": "number" },
+        "estimatedQuantity": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "sku", "name", "estimatedQuantity", "status"]
+    }
+  },
+  "firestore": {
+    "/warehouses/{id}": {
+      "schema": "Warehouse",
+      "description": "Warehouses collection"
+    },
+    "/budgets/{id}": {
+      "schema": "Budget",
+      "description": "Budgets collection"
+    },
+    "/suppliers/{id}": {
+      "schema": "Supplier",
+      "description": "Suppliers collection"
+    },
+    "/stock_items/{id}": {
+      "schema": "StockItem",
+      "description": "Stock items collection"
+    },
+    "/staff_members/{id}": {
+      "schema": "StaffMember",
+      "description": "Staff roster collection"
+    },
+    "/vehicles/{id}": {
+      "schema": "Vehicle",
+      "description": "Fleet vehicles collection"
+    },
+    "/equipment/{id}": {
+      "schema": "Equipment",
+      "description": "Equipment collection"
+    },
+    "/recipes/{id}": {
+      "schema": "Recipe",
+      "description": "Formulas collection"
+    },
+    "/tenders/{id}": {
+      "schema": "Tender",
+      "description": "Tenders collection"
+    },
+    "/bids/{id}": {
+      "schema": "Bid",
+      "description": "Bids collection"
+    },
+    "/stock_transactions/{id}": {
+      "schema": "StockTransaction",
+      "description": "Transactions collection"
+    },
+    "/menu_items/{id}": {
+      "schema": "MenuItem",
+      "description": "Menu items collection"
+    },
+    "/purchase_orders/{id}": {
+      "schema": "PurchaseOrder",
+      "description": "Purchase orders collection"
+    },
+    "/audit_logs/{id}": {
+      "schema": "AuditLog",
+      "description": "Audit logs collection"
+    },
+    "/monthly_program_items/{id}": {
+      "schema": "MonthlyProgramItem",
+      "description": "Programmed items collection"
+    }
+  }
+}
