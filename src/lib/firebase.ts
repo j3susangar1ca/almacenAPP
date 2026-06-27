@@ -19,13 +19,16 @@ export const db = getFirestore(app, "ai-studio-sigalv2enterpris-89a9e5e2-894b-42
 // Configure Google OAuth Provider with Workspace scopes
 export const googleProvider = new GoogleAuthProvider();
 
-// Scopes required for SIGAL V2 (Drive, Sheets, Docs, Gmail, Calendar)
+// Scopes required for SIGAL V2 (Drive, Sheets, Docs, Gmail, Calendar, Chat, Contacts)
 const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/documents',
   'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/calendar'
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/chat.spaces',
+  'https://www.googleapis.com/auth/chat.messages.create',
+  'https://www.googleapis.com/auth/contacts'
 ];
 
 REQUIRED_SCOPES.forEach(scope => googleProvider.addScope(scope));

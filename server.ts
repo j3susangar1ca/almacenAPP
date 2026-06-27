@@ -9,6 +9,8 @@ import { GoogleDriveService } from './server/services/GoogleDriveService';
 import { GoogleSheetsService } from './server/services/GoogleSheetsService';
 import { GoogleDocsService } from './server/services/GoogleDocsService';
 import { GmailCalendarService } from './server/services/GmailCalendarService';
+import { GooglePeopleService } from './server/services/GooglePeopleService';
+import { GoogleChatService } from './server/services/GoogleChatService';
 import { eventBus, EVENTS } from './server/services/EventBus';
 import { initEventListeners, updateBackgroundGoogleToken } from './server/services/EventListeners';
 import { ProcurementWorkflow, TenderState } from './server/services/ProcurementWorkflow';
@@ -449,6 +451,85 @@ app.post('/api/workspace/add-calendar', async (req, res) => {
   } catch (error: any) {
     console.error('Google Calendar registration failed:', error);
     res.json({ success: false, warning: 'Registro en Google Calendar en cola.', error: error.message });
+  }
+});
+
+// Google People API / Contacts
+app.get('/api/workspace/contacts', async (req, res) => {
+  const token = getGoogleAccessToken(req);
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Acceso no autorizado: inicie sesión con Google.' });
+  }
+
+  try {
+    const contacts = await GooglePeopleService.listContacts(token);
+    res.json({ success: true, contacts });
+  } catch (error: any) {
+    console.error('Google People API list contacts failed:', error);
+    res.status(500).json({ success: false, error: error.message || 'Falla al listar contactos de Google.' });
+  }
+});
+
+app.post('/api/workspace/contacts', async (req, res) => {
+  const token = getGoogleAccessToken(req);
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Acceso no autorizado: inicie sesión con Google.' });
+  }
+
+  const { givenName, familyName, email, phone, organization, title } = req.body;
+  if (!givenName) {
+    return res.status(400).json({ success: false, error: 'Falta el nombre obligatorio para el contacto.' });
+  }
+
+  try {
+    const contact = await GooglePeopleService.createContact(token, {
+      givenName,
+      familyName: familyName || '',
+      email,
+      phone,
+      organization,
+      title
+    });
+    res.json({ success: true, contact });
+  } catch (error: any) {
+    console.error('Google People API create contact failed:', error);
+    res.status(500).json({ success: false, error: error.message || 'Falla al crear contacto en Google.' });
+  }
+});
+
+// Google Chat API
+app.get('/api/workspace/chat-spaces', async (req, res) => {
+  const token = getGoogleAccessToken(req);
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Acceso no autorizado: inicie sesión con Google.' });
+  }
+
+  try {
+    const spaces = await GoogleChatService.listSpaces(token);
+    res.json({ success: true, spaces });
+  } catch (error: any) {
+    console.error('Google Chat API list spaces failed:', error);
+    res.status(500).json({ success: false, error: error.message || 'Falla al listar espacios de Google Chat.' });
+  }
+});
+
+app.post('/api/workspace/chat-message', async (req, res) => {
+  const token = getGoogleAccessToken(req);
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Acceso no autorizado: inicie sesión con Google.' });
+  }
+
+  const { spaceName, text } = req.body;
+  if (!spaceName || !text) {
+    return res.status(400).json({ success: false, error: 'Faltan parámetros spaceName o text.' });
+  }
+
+  try {
+    const message = await GoogleChatService.sendMessage(token, spaceName, text);
+    res.json({ success: true, message });
+  } catch (error: any) {
+    console.error('Google Chat API send message failed:', error);
+    res.status(500).json({ success: false, error: error.message || 'Falla al enviar mensaje de Google Chat.' });
   }
 });
 
