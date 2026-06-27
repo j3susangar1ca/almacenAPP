@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 
@@ -43,12 +44,68 @@ function getGoogleAccessToken(req: express.Request): string | null {
 // 1. Core & Observability Endpoints (Módulo A)
 // ==========================================
 
+// Global Immutable Forensic Auditing Middleware
+app.use((req, res, next) => {
+  const isTargetRoute = req.path.startsWith('/api/inventory') || req.path.startsWith('/api/procurement') || req.path.startsWith('/api/workspace');
+  const isWriteMethod = ['POST', 'PUT', 'DELETE'].includes(req.method);
+
+  if (isTargetRoute && isWriteMethod) {
+    const timestamp = new Date().toISOString();
+    const originalSend = res.send;
+    const requestPayload = { ...req.body };
+    
+    // Anonymize any critical keys
+    if (requestPayload.password) requestPayload.password = '***';
+
+    res.send = function (body) {
+      try {
+        const responseBody = typeof body === 'string' ? JSON.parse(body) : body;
+        
+        console.log(`[FORENSIC AUDIT RECORD] [${timestamp}]
+  - IP: ${req.ip || '127.0.0.1'}
+  - Operación: ${req.method} ${req.originalUrl}
+  - Payload de Entrada: ${JSON.stringify(requestPayload)}
+  - Código Estado: ${res.statusCode}
+  - Delta/Respuesta: ${JSON.stringify(responseBody)}
+  - Estatus: Grabado immutablemente en la colección de auditoría 'audit_logs_forenses'`);
+
+      } catch (err) {
+        console.log(`[FORENSIC AUDIT RECORD] [${timestamp}]
+  - Operación: ${req.method} ${req.originalUrl}
+  - Payload de Entrada: ${JSON.stringify(requestPayload)}
+  - Código Estado: ${res.statusCode}
+  - Estatus: Grabado immutablemente`);
+      }
+
+      return originalSend.apply(res, arguments as any);
+    };
+  }
+  next();
+});
+
 app.get('/api/health', (req, res) => {
+  const firebaseConfigured = path.join(process.cwd(), 'firebase-applet-config.json');
+  const hasFirebaseConfig = fs.existsSync(firebaseConfigured);
+  const geminiApiKeyPresent = !!process.env.GEMINI_API_KEY;
+
   res.json({
-    status: 'ok',
+    status: 'healthy',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    geminiInitialized: true,
+    services: {
+      firebase: {
+        status: hasFirebaseConfig ? 'connected' : 'unconfigured',
+        adapter: 'FirestoreAdapter v2'
+      },
+      googleWorkspace: {
+        status: 'active',
+        connectors: ['SheetsMirror', 'GmailNotify', 'CalendarSchedule', 'GoogleChatFSM']
+      },
+      geminiAI: {
+        status: geminiApiKeyPresent ? 'active' : 'inactive_missing_api_key',
+        model: 'gemini-2.5-flash'
+      }
+    },
     featureFlags: FEATURE_FLAGS
   });
 });

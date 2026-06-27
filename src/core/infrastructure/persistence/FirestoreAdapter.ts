@@ -62,6 +62,20 @@ export class FirestoreAdapter {
     }
   }
 
+  async getDocument<T>(collectionName: string, id: string): Promise<T | null> {
+    const mapped = this.getMappedCollectionName(collectionName);
+    try {
+      const docRef = doc(db, mapped, id);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() } as unknown as T;
+      }
+      return null;
+    } catch (error) {
+      this.handleError(error, OperationType.GET, `${mapped}/${id}`);
+    }
+  }
+
   async addDocument(collectionName: string, data: any): Promise<any> {
     const mapped = this.getMappedCollectionName(collectionName);
     try {

@@ -2,69 +2,116 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Safety fallback
+    // Fallback: Default to deny all unless explicitly allowed
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasStockReadRole() {
+      return isAuth() && 
+        hasUserDoc() && 
+        (getUserData().role in ['Administrador', 'Almacenero', 'Jefe de Cocina', 'Auditor']);
+    }
+
+    function hasStockWriteRole() {
+      return isAuth() && 
+        hasUserDoc() && 
+        (getUserData().role in ['Administrador', 'Almacenero']);
+    }
+
+    // Users Collection Rule
+    match /users/{uid} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+
+    // Stock items collection (rbac controlled read and write)
+    match /stock_items/{id} {
+      allow read: if hasStockReadRole();
+      allow write: if hasStockWriteRole();
+    }
+
+    // Standard collections rules with authentication guard
     match /warehouses/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Almacenero']);
     }
 
     match /budgets/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Comprador']);
     }
 
     match /suppliers/{id} {
-      allow read, write: if true;
-    }
-
-    match /stock_items/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Comprador']);
     }
 
     match /staff_members/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador']);
     }
 
     match /vehicles/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Almacenero']);
     }
 
     match /equipment/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Almacenero']);
     }
 
     match /recipes/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Jefe de Cocina']);
     }
 
     match /tenders/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Comprador']);
     }
 
     match /bids/{id} {
-      allow read, write: if true;
+      allow read, write: if isAuth();
     }
 
     match /stock_transactions/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Almacenero']);
     }
 
     match /menu_items/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Jefe de Cocina']);
     }
 
     match /purchase_orders/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Comprador']);
     }
 
     match /audit_logs/{id} {
-      allow read, write: if true;
+      allow read: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador', 'Auditor']);
+      allow write: if isAuth();
     }
 
     match /monthly_program_items/{id} {
-      allow read, write: if true;
+      allow read: if isAuth();
+      allow write: if isAuth() && hasUserDoc() && (getUserData().role in ['Administrador']);
     }
   }
 }

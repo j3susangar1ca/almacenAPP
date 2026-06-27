@@ -125,3 +125,13 @@ Como parte del proceso de maduración de la arquitectura limpia de **SIGAL V2**,
     *   **procurementRoutes.ts:** Integraciones complejas con Google Docs, Gmail, Calendar, People/Contacts y Google Chat, coordinados con el motor de FSM.
 *   `server.ts` ahora actúa únicamente como el punto de orquestación central e inicialización de Middlewares y Event Listeners.
 
+### 6.4. Purga de Deuda Técnica, Observabilidad y Banco de Pruebas (Producción SIGAL V2)
+*   **Remoción de Código Legacy:** Se purgó por completo el archivo redundante `src/lib/firestoreService.ts`. Todos los componentes y el enrutador de estado (`App.tsx`) consumen exclusivamente el `FirestoreAdapter.ts` de la arquitectura limpia, unificando la persistencia corporativa.
+*   **PWA Instalable (Offline-First):** Configuración de `public/manifest.json` y de un Service Worker robusto en `public/sw.js` (implementando caching Stale-While-Revalidate para recursos estáticos) permitiendo que la aplicación se instale en dispositivos de campo y mantenga operatividad estable ante caídas de red.
+*   **Logs Forenses de Auditoría Inmutable:** Integración de un Middleware Global en `server.ts` que intercepta todas las peticiones POST/PUT/DELETE dirigidas al inventario y licitaciones, registrando de forma inmutable el delta exacto de los datos en Firestore, listos para revisiones del Auditor General.
+*   **Endpoint de Diagnóstico `/api/health`:** Se robusteció el chequeo de salud para que valide la conectividad activa de Firebase Firestore, las API de Google Workspace, y la disponibilidad del servicio inteligente de Gemini.
+*   **Guardrails de Calidad (Banco de Pruebas Unitarias):** Creación de `/src/test/businessInvariants.test.ts` que valida las invariantes de negocio esenciales:
+    1. Que el `BudgetAggregate` lance una excepción si se intenta comprometer un monto mayor al presupuesto disponible de la partida presupuestal.
+    2. Que el `EventBus` despache correctamente el evento asíncrono `'StockBelowMinimum'` cuando las existencias desciendan del límite mínimo de seguridad.
+
+

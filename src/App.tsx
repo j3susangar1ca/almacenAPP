@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getFirestoreData, 
-  seedEnterpriseDatabase, 
-  executeStockMovementTransaction, 
-  addFirestoreDocument, 
-  updateFirestoreDocument,
-  getFirestoreCollection
-} from './lib/firestoreService';
+import { firestoreAdapter } from './core/infrastructure/persistence/FirestoreAdapter';
 import { 
   signInWithGoogle, 
   logoutUser, 
@@ -127,6 +120,22 @@ export default function App() {
         if (accessToken) {
           localStorage.setItem('google_access_token', accessToken);
         }
+
+        // Fetch user profile from Firestore /users/{uid} to sync role state
+        firestoreAdapter.getDocument<{ role: UserRole }>('users', user.uid)
+          .then((profile) => {
+            if (profile && profile.role) {
+              setActiveRole(profile.role);
+              console.log(`[AUTH-RBAC] Synced user role from database: ${profile.role}`);
+            } else {
+              // Default fallback to Auditor if role is missing
+              setActiveRole('Auditor');
+            }
+          })
+          .catch((err) => {
+            console.warn('[AUTH-RBAC] Could not load custom role document, using Auditor role:', err);
+            setActiveRole('Auditor');
+          });
       }
     });
     return () => unsubscribe();
@@ -136,36 +145,36 @@ export default function App() {
   const loadDatabase = async () => {
     setLoading(true);
     try {
-      let fetchedItems = await getFirestoreCollection<StockItem>('items');
-      let fetchedBudgets = await getFirestoreCollection<Budget>('budgets');
-      let fetchedTenders = await getFirestoreCollection<Tender>('tenders');
-      let fetchedBids = await getFirestoreCollection<Bid>('bids');
-      let fetchedTransactions = await getFirestoreCollection<StockTransaction>('transactions');
-      let fetchedMenus = await getFirestoreCollection<MenuItem>('menuItems');
-      let fetchedStaff = await getFirestoreCollection<StaffMember>('staff');
-      let fetchedVehicles = await getFirestoreCollection<Vehicle>('vehicles');
-      let fetchedEquip = await getFirestoreCollection<Equipment>('equipment');
-      let fetchedProg = await getFirestoreCollection<MonthlyProgramItem>('programItems');
-      let fetchedPo = await getFirestoreCollection<PurchaseOrder>('purchaseOrders');
+      let fetchedItems = await firestoreAdapter.getCollection<StockItem>('items');
+      let fetchedBudgets = await firestoreAdapter.getCollection<Budget>('budgets');
+      let fetchedTenders = await firestoreAdapter.getCollection<Tender>('tenders');
+      let fetchedBids = await firestoreAdapter.getCollection<Bid>('bids');
+      let fetchedTransactions = await firestoreAdapter.getCollection<StockTransaction>('transactions');
+      let fetchedMenus = await firestoreAdapter.getCollection<MenuItem>('menuItems');
+      let fetchedStaff = await firestoreAdapter.getCollection<StaffMember>('staff');
+      let fetchedVehicles = await firestoreAdapter.getCollection<Vehicle>('vehicles');
+      let fetchedEquip = await firestoreAdapter.getCollection<Equipment>('equipment');
+      let fetchedProg = await firestoreAdapter.getCollection<MonthlyProgramItem>('programItems');
+      let fetchedPo = await firestoreAdapter.getCollection<PurchaseOrder>('purchaseOrders');
 
       // If database is completely unseeded, execute seed schema
       if (fetchedItems.length === 0) {
         setSeeding(true);
-        await seedEnterpriseDatabase();
+        await firestoreAdapter.seedDatabaseIfEmpty();
         setSeeding(false);
         
         // Refetch after seeding
-        fetchedItems = await getFirestoreCollection<StockItem>('items');
-        fetchedBudgets = await getFirestoreCollection<Budget>('budgets');
-        fetchedTenders = await getFirestoreCollection<Tender>('tenders');
-        fetchedBids = await getFirestoreCollection<Bid>('bids');
-        fetchedTransactions = await getFirestoreCollection<StockTransaction>('transactions');
-        fetchedMenus = await getFirestoreCollection<MenuItem>('menuItems');
-        fetchedStaff = await getFirestoreCollection<StaffMember>('staff');
-        fetchedVehicles = await getFirestoreCollection<Vehicle>('vehicles');
-        fetchedEquip = await getFirestoreCollection<Equipment>('equipment');
-        fetchedProg = await getFirestoreCollection<MonthlyProgramItem>('programItems');
-        fetchedPo = await getFirestoreCollection<PurchaseOrder>('purchaseOrders');
+        fetchedItems = await firestoreAdapter.getCollection<StockItem>('items');
+        fetchedBudgets = await firestoreAdapter.getCollection<Budget>('budgets');
+        fetchedTenders = await firestoreAdapter.getCollection<Tender>('tenders');
+        fetchedBids = await firestoreAdapter.getCollection<Bid>('bids');
+        fetchedTransactions = await firestoreAdapter.getCollection<StockTransaction>('transactions');
+        fetchedMenus = await firestoreAdapter.getCollection<MenuItem>('menuItems');
+        fetchedStaff = await firestoreAdapter.getCollection<StaffMember>('staff');
+        fetchedVehicles = await firestoreAdapter.getCollection<Vehicle>('vehicles');
+        fetchedEquip = await firestoreAdapter.getCollection<Equipment>('equipment');
+        fetchedProg = await firestoreAdapter.getCollection<MonthlyProgramItem>('programItems');
+        fetchedPo = await firestoreAdapter.getCollection<PurchaseOrder>('purchaseOrders');
       }
 
       setItems(fetchedItems);
@@ -180,8 +189,16 @@ export default function App() {
       setProgramItems(fetchedProg);
       setPurchaseOrders(fetchedPo);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching database collections:', err);
+      const errStr = String(err.message || err);
+      if (errStr.includes('permission') || errStr.includes('403') || errStr.includes('insufficient')) {
+        toast.error('Acceso Restringido (403): Su rol actual no posee los permisos suficientes para leer la colección de stock_items o algunos recursos del sistema.', {
+          duration: 8000
+        });
+      } else {
+        toast.error('Error al cargar la base de datos de SIGAL V2: ' + errStr);
+      }
     } finally {
       setLoading(false);
     }
@@ -256,7 +273,7 @@ export default function App() {
     // Display elegant sonner toast
     const toastLabel = `${type === 'IN' ? 'Entrada' : 'Salida'}: ${qty} ${targetItem.unit} de ${targetItem.name}`;
     toast.promise(
-      executeStockMovementTransaction(
+      firestoreAdapter.executeStockMovement(
         itemId,
         type,
         qty,
@@ -351,7 +368,7 @@ export default function App() {
     const budget = budgets.find(b => b.code === budgetCode);
     if (!budget) return;
     
-    await updateFirestoreDocument('budgets', budget.id, {
+    await firestoreAdapter.updateDocument('budgets', budget.id, {
       committedAmount: budget.committedAmount + amount,
       availableAmount: budget.availableAmount - amount
     });
@@ -360,24 +377,24 @@ export default function App() {
 
   // Tenders modification
   const handleUpdateTender = async (id: string, updates: Partial<Tender>) => {
-    await updateFirestoreDocument('tenders', id, updates);
+    await firestoreAdapter.updateDocument('tenders', id, updates);
     await loadDatabase();
   };
 
   const handleAddTender = async (tender: Tender) => {
-    await addFirestoreDocument('tenders', tender);
+    await firestoreAdapter.addDocument('tenders', tender);
     await loadDatabase();
   };
 
   // Bids registry
   const handleAddBid = async (bid: Bid) => {
-    await addFirestoreDocument('bids', bid);
+    await firestoreAdapter.addDocument('bids', bid);
     await loadDatabase();
   };
 
   // Menu planners
   const handleAddMenu = async (menu: MenuItem) => {
-    await addFirestoreDocument('menuItems', menu);
+    await firestoreAdapter.addDocument('menuItems', menu);
     await loadDatabase();
   };
 
@@ -387,7 +404,7 @@ export default function App() {
       for (const deduction of itemDeductions) {
         const targetItem = items.find(i => i.sku === deduction.sku);
         if (targetItem) {
-          await executeStockMovementTransaction(
+          await firestoreAdapter.executeStockMovement(
             targetItem.id,
             'OUT',
             deduction.qty,
@@ -399,7 +416,7 @@ export default function App() {
       }
 
       // 2. Mark menu as served
-      await updateFirestoreDocument('menuItems', menuId, { status: 'Servido' });
+      await firestoreAdapter.updateDocument('menuItems', menuId, { status: 'Servido' });
       await loadDatabase();
       return { success: true, msg: 'Menú servido de manera exitosa.' };
     } catch (err: any) {
@@ -409,24 +426,24 @@ export default function App() {
 
   // Add resources helpers
   const handleAddStaff = async (member: StaffMember) => {
-    await addFirestoreDocument('staff', member);
+    await firestoreAdapter.addDocument('staff', member);
     await loadDatabase();
   };
 
   const handleAddVehicle = async (veh: Vehicle) => {
-    await addFirestoreDocument('vehicles', veh);
+    await firestoreAdapter.addDocument('vehicles', veh);
     await loadDatabase();
   };
 
   const handleTriggerMaintenance = async (type: 'vehicle' | 'equipment', id: string) => {
     const today = new Date().toISOString().split('T')[0];
     if (type === 'vehicle') {
-      await updateFirestoreDocument('vehicles', id, {
+      await firestoreAdapter.updateDocument('vehicles', id, {
         status: 'Mantenimiento',
         nextMaintenance: today
       });
     } else {
-      await updateFirestoreDocument('equipment', id, {
+      await firestoreAdapter.updateDocument('equipment', id, {
         status: 'Mantenimiento',
         lastMaintenance: today
       });
@@ -436,7 +453,7 @@ export default function App() {
 
   // Add PO helper
   const handleAddPurchaseOrder = async (po: PurchaseOrder) => {
-    await addFirestoreDocument('purchaseOrders', po);
+    await firestoreAdapter.addDocument('purchaseOrders', po);
     await loadDatabase();
   };
 

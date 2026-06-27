@@ -4,7 +4,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase App
@@ -61,6 +61,29 @@ export const initAuth = (
 };
 
 /**
+ * Ensures user profile exists in Firestore /users/{uid} with default 'Auditor' role
+ */
+export const ensureUserDocument = async (user: User): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      console.log(`[AUTH-RBAC] User ${user.email} not found in Firestore. Creating default profile...`);
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || 'Usuario SIGAL',
+        role: 'Auditor',
+        createdAt: new Date().toISOString()
+      });
+      console.log(`[AUTH-RBAC] Default 'Auditor' role profile created for ${user.email}`);
+    }
+  } catch (err) {
+    console.error('[AUTH-RBAC] Failed to provision user document in Firestore:', err);
+  }
+};
+
+/**
  * Handle Google Sign-In with popup and return user profile and access token
  */
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
@@ -73,6 +96,10 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
+    
+    // Auto-provision user role document
+    await ensureUserDocument(result.user);
+    
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error('Firebase Auth / Google Sign-In failed:', error);
@@ -101,5 +128,10 @@ export const logout = async () => {
 export const signInWithGoogle = googleSignIn;
 export const logoutUser = logout;
 export const onAuthStateChange = (callback: (user: User | null) => void) => {
-  return onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      await ensureUserDocument(user);
+    }
+    callback(user);
+  });
 };
