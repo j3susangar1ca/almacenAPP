@@ -545,6 +545,147 @@ Aprobado y auditado por la Dirección General de Abastecimiento de Víveres Púb
   }
 });
 
+// Generar PDF Oficial de Orden de Compra con Código QR (Google Docs + Google Drive)
+app.post('/api/workspace/generate-po-pdf', async (req, res) => {
+  const token = getGoogleAccessToken(req);
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'La generación de PDF requiere sesión de Google activa.' });
+  }
+
+  const { po } = req.body;
+  if (!po || !po.id) {
+    return res.status(400).json({ success: false, error: 'Faltan los detalles de la orden de compra.' });
+  }
+
+  try {
+    // 1. Create Google Doc
+    const docRes = await fetch('https://docs.googleapis.com/v1/documents', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ title: `Orden de Compra Oficial - ${po.id}` })
+    });
+
+    if (!docRes.ok) {
+      const errorText = await docRes.text();
+      throw new Error(`Falla de Google Docs API al crear documento: ${errorText}`);
+    }
+    const docData = await docRes.json();
+    const documentId = docData.documentId;
+
+    // 2. Format items list for PO body
+    const itemsText = po.items.map((item: any, idx: number) => 
+      `${idx + 1}. SKU: ${item.sku}\n   Artículo: ${item.name}\n   Cantidad: ${item.quantity} unidades\n   Costo Unitario: S/. ${item.unitCost.toLocaleString()}\n   Subtotal: S/. ${(item.quantity * item.unitCost).toLocaleString()}`
+    ).join('\n\n');
+
+    const textContent = `
+============================================================
+           SIGAL V2 ERP - GOBIERNO DE LA REPÚBLICA
+        SISTEMA INTEGRADO DE GESTIÓN ALIMENTARIA V2
+============================================================
+
+ORDEN DE COMPRA OFICIAL (ORDER OF PURCHASE)
+------------------------------------------------------------
+ID de la Orden: ${po.id}
+Fecha de Emisión: ${new Date(po.createdAt || Date.now()).toLocaleString()}
+Código Presupuestario: ${po.budgetCode || 'P-101'}
+Estado: ${po.status}
+
+------------------------------------------------------------
+PROVEEDOR ADJUDICADO
+------------------------------------------------------------
+Razón Social: ${po.supplierName}
+ID Proveedor: ${po.supplierId}
+RUC: 20554488331 (Distribuidora Alimenticia) / 20113344558 (Frigorífico)
+
+------------------------------------------------------------
+DETALLES DEL PEDIDO DE VÍVERES PÚBLICOS
+------------------------------------------------------------
+${itemsText}
+
+------------------------------------------------------------
+RESUMEN ECONÓMICO
+------------------------------------------------------------
+Monto Total Comprometido: S/. ${po.totalAmount.toLocaleString()}
+Plazo de Entrega: 48 horas en Almacén Central
+
+------------------------------------------------------------
+CÓDIGO QR PARA CONTROL FÍSICO Y LOGÍSTICO
+------------------------------------------------------------
+Escanee este código en el ingreso del almacén de destino:
+
+
+
+------------------------------------------------------------
+Documento de Abastecimiento Oficial de la Nación.
+Firma Autorizada: Dirección General de Logística y Abastecimiento
+`;
+
+    // 3. Populate text and QR code inline image
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(po.id)}`;
+    
+    // We insert the inline image first at index 1, then insert the text content at index 1.
+    // This pushes the image to the end of the text.
+    const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            insertInlineImage: {
+              uri: qrUrl,
+              location: { index: 1 },
+              objectSize: {
+                height: { magnitude: 130, unit: 'PT' },
+                width: { magnitude: 130, unit: 'PT' }
+              }
+            }
+          },
+          {
+            insertText: {
+              location: { index: 1 },
+              text: textContent
+            }
+          }
+        ]
+      })
+    });
+
+    if (!updateRes.ok) {
+      const errorText = await updateRes.text();
+      throw new Error(`Falla de Google Docs API al escribir contenido: ${errorText}`);
+    }
+
+    // 4. Export Doc to PDF via Drive API
+    const exportRes = await fetch(`https://www.googleapis.com/drive/v3/files/${documentId}/export?mimeType=application/pdf`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!exportRes.ok) {
+      const errorText = await exportRes.text();
+      throw new Error(`Falla de Google Drive API al exportar PDF: ${errorText}`);
+    }
+
+    const pdfBuffer = await exportRes.arrayBuffer();
+
+    // 5. Stream PDF binary response
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Orden_de_Compra_${po.id}.pdf"`);
+    res.send(Buffer.from(pdfBuffer));
+
+  } catch (error: any) {
+    console.error('Google Docs PDF compile error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Error compilando PDF oficial con Google Docs.' });
+  }
+});
+
 // Enviar correos con Gmail
 app.post('/api/workspace/send-email', async (req, res) => {
   const token = getGoogleAccessToken(req);
