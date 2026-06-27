@@ -4,6 +4,15 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
+// Import our core DDD / Clean Architecture services & FSM
+import { GoogleDriveService } from './server/services/GoogleDriveService';
+import { GoogleSheetsService } from './server/services/GoogleSheetsService';
+import { GoogleDocsService } from './server/services/GoogleDocsService';
+import { GmailCalendarService } from './server/services/GmailCalendarService';
+import { eventBus, EVENTS } from './server/services/EventBus';
+import { initEventListeners, updateBackgroundGoogleToken } from './server/services/EventListeners';
+import { ProcurementWorkflow, TenderState } from './server/services/ProcurementWorkflow';
+
 dotenv.config();
 
 const app = express();
@@ -45,7 +54,9 @@ try {
 function getGoogleAccessToken(req: express.Request): string | null {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
+    const token = authHeader.substring(7);
+    updateBackgroundGoogleToken(token); // Update token cache for background EventBus listeners
+    return token;
   }
   return null;
 }
@@ -70,12 +81,37 @@ app.post('/api/audit-log', (req, res) => {
   res.json({ success: true });
 });
 
+// Bridge to local Event-Driven Architecture (EDA)
+app.post('/api/events/publish', (req, res) => {
+  getGoogleAccessToken(req); // Capture and cache token if passed in header
+  const { event, payload } = req.body;
+  if (!event || !payload) {
+    return res.status(400).json({ success: false, error: 'Faltan parámetros event o payload.' });
+  }
+  eventBus.publish(event, payload);
+  res.json({ success: true, message: `Evento "${event}" publicado en el servidor.` });
+});
+
+// Finite State Machine (FSM) validation endpoint
+app.post('/api/procurement/validate-transition', (req, res) => {
+  const { current, target } = req.body;
+  if (!current || !target) {
+    return res.status(400).json({ success: false, error: 'Faltan estados actual y objetivo.' });
+  }
+  const isValid = ProcurementWorkflow.isValidTransition(current as TenderState, target as TenderState);
+  res.json({
+    success: true,
+    isValid,
+    nextStates: ProcurementWorkflow.getNextStates(current as TenderState)
+  });
+});
+
 // ==========================================
 // 2. Gemini AI Endpoints
 // ==========================================
 
 // Endpoint: Forecast AI / Inventory AI
-app.post('/api/gemini/forecast', async (req, res) => {
+app.post(['/api/gemini/forecast', '/api/ai/forecast'], async (req, res) => {
   if (!ai) {
     return res.status(500).json({ success: false, error: 'Gemini SDK no inicializado. Configure su clave API.' });
   }
@@ -188,7 +224,7 @@ app.post('/api/gemini/procurement-summary', async (req, res) => {
 });
 
 // Endpoint: Nutrition AI
-app.post('/api/gemini/nutrition-suggestions', async (req, res) => {
+app.post(['/api/gemini/nutrition-suggestions', '/api/ai/nutrition'], async (req, res) => {
   if (!ai) {
     return res.status(500).json({ success: false, error: 'Gemini SDK no inicializado.' });
   }
@@ -243,7 +279,7 @@ app.post('/api/gemini/nutrition-suggestions', async (req, res) => {
 });
 
 // Endpoint: OCR Intelligent Agent
-app.post('/api/gemini/ocr-invoice', async (req, res) => {
+app.post(['/api/gemini/ocr-invoice', '/api/ai/ocr'], async (req, res) => {
   if (!ai) {
     return res.status(500).json({ success: false, error: 'Gemini SDK no inicializado.' });
   }
@@ -313,82 +349,8 @@ app.post('/api/workspace/setup-drive', async (req, res) => {
   }
 
   try {
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    
-    // Create Root folder "/SIGAL_DATA"
-    const rootRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: 'SIGAL_DATA',
-        mimeType: 'application/vnd.google-apps.folder'
-      })
-    });
-
-    if (!rootRes.ok) throw new Error('Failed to create SIGAL_DATA folder');
-    const rootData = await rootRes.json();
-    const rootId = rootData.id;
-
-    // Create Year Folder
-    const yearRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: String(year),
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [rootId]
-      })
-    });
-    const yearData = await yearRes.json();
-
-    // Create Month Folder
-    const monthRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: month,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [yearData.id]
-      })
-    });
-    const monthData = await monthRes.json();
-
-    // Create Subfolders: /Pedidos, /Licitaciones, /Menus, /Reportes
-    const subfolders = ['Pedidos', 'Licitaciones', 'Menus', 'Reportes'];
-    const subfolderIds: Record<string, string> = {};
-
-    for (const folder of subfolders) {
-      const fRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: folder,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [monthData.id]
-        })
-      });
-      const fData = await fRes.json();
-      subfolderIds[folder] = fData.id;
-    }
-
-    res.json({
-      success: true,
-      rootFolderId: rootId,
-      subfolders: subfolderIds
-    });
+    const result = await GoogleDriveService.setupFolders(token);
+    res.json(result);
   } catch (error: any) {
     console.error('Google Drive setup failed:', error);
     res.json({ success: false, warning: 'Guardado local exitoso; sincronización con Google Drive en cola.', error: error.message });
@@ -408,49 +370,8 @@ app.post('/api/workspace/sync-sheets', async (req, res) => {
   }
 
   try {
-    // 1. Create a Spreadsheet
-    const sheetRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        properties: {
-          title: `SIGAL V2 - Balance de Inventario ${new Date().toISOString().substring(0,10)}`
-        }
-      })
-    });
-
-    if (!sheetRes.ok) throw new Error('No se pudo crear la hoja de cálculo.');
-    const sheetData = await sheetRes.json();
-    const spreadsheetId = sheetData.spreadsheetId;
-
-    // 2. Prepare headers and values
-    const values = [
-      ['SKU', 'Artículo', 'Categoría', 'Unidad de Medida', 'Costo Unitario', 'Stock Actual', 'Stock Mínimo', 'Lote', 'Vencimiento'],
-      ...items.map((i: any) => [
-        i.sku, i.name, i.category, i.unit, i.unitCost, i.stockActual, i.stockMinimo, i.batchCode || '', i.expirationDate || ''
-      ])
-    ];
-
-    // 3. Write data to sheet
-    const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A1?valueInputOption=USER_ENTERED`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ values })
-    });
-
-    if (!writeRes.ok) throw new Error('Error al escribir celdas en Google Sheets.');
-
-    res.json({
-      success: true,
-      spreadsheetId,
-      url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
-    });
+    const result = await GoogleSheetsService.syncInventory(token, items);
+    res.json(result);
   } catch (error: any) {
     console.error('Google Sheets syncing failed:', error);
     res.json({ success: false, warning: 'Sincronización Sheets falló. Datos guardados localmente.', error: error.message });
@@ -464,81 +385,10 @@ app.post('/api/workspace/generate-doc', async (req, res) => {
     return res.json({ success: false, warning: 'Google Docs bypass: requiere sesión.', localOnly: true });
   }
 
-  const { title, contentTags } = req.body; // contentTags: { "{{PROVEEDOR}}": "Ventas S.A.", ... }
+  const { title, contentTags } = req.body;
   try {
-    // 1. Create Doc
-    const docRes = await fetch('https://docs.googleapis.com/v1/documents', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ title })
-    });
-
-    if (!docRes.ok) throw new Error('No se pudo crear Google Doc');
-    const docData = await docRes.json();
-    const documentId = docData.documentId;
-
-    // 2. Populate text with markers
-    const textContent = `
-=========================================
-      SIGAL V2 ERP - DOCUMENTO OFICIAL
-=========================================
-Fecha de Generación: ${new Date().toLocaleDateString()}
-
-PROVEEDOR: {{PROVEEDOR}}
-RUC: {{RUC}}
-MONTO CONTRACTUAL: {{MONTO}}
-JUSTIFICACIÓN: {{JUSTIFICACION}}
-
-Aprobado y auditado por la Dirección General de Abastecimiento de Víveres Públicos.
-    `;
-
-    // Insert original text first
-    await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            insertText: {
-              location: { index: 1 },
-              text: textContent
-            }
-          }
-        ]
-      })
-    });
-
-    // 3. Replace all Tags/Markers
-    const requests: any[] = [];
-    Object.entries(contentTags).forEach(([tag, replacement]) => {
-      requests.push({
-        replaceAllText: {
-          containsText: { text: tag, matchCase: true },
-          replaceText: String(replacement)
-        }
-      });
-    });
-
-    await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ requests })
-    });
-
-    res.json({
-      success: true,
-      documentId,
-      url: `https://docs.google.com/document/d/${documentId}/edit`
-    });
+    const result = await GoogleDocsService.generateDocFromTemplate(token, title, contentTags);
+    res.json(result);
   } catch (error: any) {
     console.error('Google Docs generation failed:', error);
     res.json({ success: false, warning: 'Falla al estructurar Google Doc en la nube.', error: error.message });
@@ -558,128 +408,10 @@ app.post('/api/workspace/generate-po-pdf', async (req, res) => {
   }
 
   try {
-    // 1. Create Google Doc
-    const docRes = await fetch('https://docs.googleapis.com/v1/documents', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ title: `Orden de Compra Oficial - ${po.id}` })
-    });
-
-    if (!docRes.ok) {
-      const errorText = await docRes.text();
-      throw new Error(`Falla de Google Docs API al crear documento: ${errorText}`);
-    }
-    const docData = await docRes.json();
-    const documentId = docData.documentId;
-
-    // 2. Format items list for PO body
-    const itemsText = po.items.map((item: any, idx: number) => 
-      `${idx + 1}. SKU: ${item.sku}\n   Artículo: ${item.name}\n   Cantidad: ${item.quantity} unidades\n   Costo Unitario: S/. ${item.unitCost.toLocaleString()}\n   Subtotal: S/. ${(item.quantity * item.unitCost).toLocaleString()}`
-    ).join('\n\n');
-
-    const textContent = `
-============================================================
-           SIGAL V2 ERP - GOBIERNO DE LA REPÚBLICA
-        SISTEMA INTEGRADO DE GESTIÓN ALIMENTARIA V2
-============================================================
-
-ORDEN DE COMPRA OFICIAL (ORDER OF PURCHASE)
-------------------------------------------------------------
-ID de la Orden: ${po.id}
-Fecha de Emisión: ${new Date(po.createdAt || Date.now()).toLocaleString()}
-Código Presupuestario: ${po.budgetCode || 'P-101'}
-Estado: ${po.status}
-
-------------------------------------------------------------
-PROVEEDOR ADJUDICADO
-------------------------------------------------------------
-Razón Social: ${po.supplierName}
-ID Proveedor: ${po.supplierId}
-RUC: 20554488331 (Distribuidora Alimenticia) / 20113344558 (Frigorífico)
-
-------------------------------------------------------------
-DETALLES DEL PEDIDO DE VÍVERES PÚBLICOS
-------------------------------------------------------------
-${itemsText}
-
-------------------------------------------------------------
-RESUMEN ECONÓMICO
-------------------------------------------------------------
-Monto Total Comprometido: S/. ${po.totalAmount.toLocaleString()}
-Plazo de Entrega: 48 horas en Almacén Central
-
-------------------------------------------------------------
-CÓDIGO QR PARA CONTROL FÍSICO Y LOGÍSTICO
-------------------------------------------------------------
-Escanee este código en el ingreso del almacén de destino:
-
-
-
-------------------------------------------------------------
-Documento de Abastecimiento Oficial de la Nación.
-Firma Autorizada: Dirección General de Logística y Abastecimiento
-`;
-
-    // 3. Populate text and QR code inline image
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(po.id)}`;
-    
-    // We insert the inline image first at index 1, then insert the text content at index 1.
-    // This pushes the image to the end of the text.
-    const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            insertInlineImage: {
-              uri: qrUrl,
-              location: { index: 1 },
-              objectSize: {
-                height: { magnitude: 130, unit: 'PT' },
-                width: { magnitude: 130, unit: 'PT' }
-              }
-            }
-          },
-          {
-            insertText: {
-              location: { index: 1 },
-              text: textContent
-            }
-          }
-        ]
-      })
-    });
-
-    if (!updateRes.ok) {
-      const errorText = await updateRes.text();
-      throw new Error(`Falla de Google Docs API al escribir contenido: ${errorText}`);
-    }
-
-    // 4. Export Doc to PDF via Drive API
-    const exportRes = await fetch(`https://www.googleapis.com/drive/v3/files/${documentId}/export?mimeType=application/pdf`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (!exportRes.ok) {
-      const errorText = await exportRes.text();
-      throw new Error(`Falla de Google Drive API al exportar PDF: ${errorText}`);
-    }
-
-    const pdfBuffer = await exportRes.arrayBuffer();
-
-    // 5. Stream PDF binary response
+    const pdfBuffer = await GoogleDocsService.generatePoPdf(token, po);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Orden_de_Compra_${po.id}.pdf"`);
-    res.send(Buffer.from(pdfBuffer));
-
+    res.send(pdfBuffer);
   } catch (error: any) {
     console.error('Google Docs PDF compile error:', error);
     res.status(500).json({ success: false, error: error.message || 'Error compilando PDF oficial con Google Docs.' });
@@ -695,35 +427,8 @@ app.post('/api/workspace/send-email', async (req, res) => {
 
   const { to, subject, htmlBody } = req.body;
   try {
-    const rawMessage = [
-      `To: ${to}`,
-      'Content-Type: text/html; charset=utf-8',
-      'MIME-Version: 1.0',
-      `Subject: ${subject}`,
-      '',
-      htmlBody
-    ].join('\n');
-
-    const encodedMessage = Buffer.from(rawMessage)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    const emailRes = await fetch('https://gmail.googleapis.com/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ raw: encodedMessage })
-    });
-
-    if (!emailRes.ok) {
-      throw new Error('Gmail API devolvió error de despacho');
-    }
-
-    res.json({ success: true, msg: 'Email enviado con éxito vía Gmail.' });
+    const result = await GmailCalendarService.sendAlertEmail(token, to, subject, htmlBody);
+    res.json(result);
   } catch (error: any) {
     console.error('Gmail send failed:', error);
     res.json({ success: false, warning: 'Guardado exitoso; envío de correo de notificación en cola.', error: error.message });
@@ -739,23 +444,8 @@ app.post('/api/workspace/add-calendar', async (req, res) => {
 
   const { title, description, date } = req.body;
   try {
-    const eventRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        summary: title,
-        description,
-        start: { date: date }, // All day event
-        end: { date: date }
-      })
-    });
-
-    if (!eventRes.ok) throw new Error('Falla en la API de Google Calendar');
-
-    res.json({ success: true, msg: 'Evento agendado con éxito.' });
+    const result = await GmailCalendarService.scheduleCalendarEvent(token, title, description, date);
+    res.json(result);
   } catch (error: any) {
     console.error('Google Calendar registration failed:', error);
     res.json({ success: false, warning: 'Registro en Google Calendar en cola.', error: error.message });
@@ -767,6 +457,9 @@ app.post('/api/workspace/add-calendar', async (req, res) => {
 // ==========================================
 
 async function startServer() {
+  // Initialize EventBus event listeners
+  initEventListeners();
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
