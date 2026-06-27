@@ -1,5 +1,12 @@
 {
-  "firestore": {
-    "rules": "firestore.rules"
-  }
+  "firestore": [
+    {
+      "database": "(default)",
+      "rules": "firestore.rules"
+    },
+    {
+      "database": "ai-studio-sigalv2enterpris-89a9e5e2-894b-42d0-afab-e992aa916acb",
+      "rules": "firestore.rules"
+    }
+  ]
 }
